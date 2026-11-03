@@ -1,22 +1,46 @@
-# BLADE SPIRITS ARENA V6 — SPIRIT REFORGED
+# Blade Spirits Arena V9 - Eternal Realm
 
-Prototype game đấu kiếm 3D **nhân vật nguyên bản**; hỗ trợ **PvP** và **Co-op săn Boss** (tối đa 12 người/phòng theo cấu hình server). Kế thừa cơ chế V5: combo 3 đòn, đỡ đòn, né, tuyệt kỹ, bình hồi máu (+42 HP, xuất hiện lại sau 12 giây).
+Phiên bản tổng hợp hoàn thiện hơn của game chiến đấu nhiều người chơi trên trình duyệt.
 
-## Nâng cấp V6
-- Kiếm sĩ 3D có tóc nhiều lớp, mắt, phụ kiện áo giáp, thắt lưng, dải vải phụ và đèn kiếm, với bảng màu riêng cho 6 nhân vật. Các mẫu được **dựng bằng Three.js**, không dùng hình ảnh hay model nhân vật có bản quyền.
-- Hoạt ảnh vải bổ sung, nhịp chạy và vung kiếm chuyển tiếp mềm bằng nội suy theo thời gian thực.
-- Tối ưu cấu hình bóng đổ và độ phân giải khi chơi trên thiết bị cảm ứng.
-- Chỉnh giao diện chọn nhân vật và HUD.
+## Tính năng chính
 
-## Cài và chạy
-````bash
+- 6 kiếm sĩ nguyên bản với phong cách riêng.
+- 2 chế độ chơi: PvP Arena và Co-op Săn Boss.
+- Đấu trường bối cảnh đêm trăng với đèn lồng, cổng torii, tre và cánh hoa bay.
+- Combo 3 đòn, tuyệt kỹ, né lướt, đỡ đòn.
+- Linh dược hồi máu xuất hiện trên bản đồ.
+- XP và cấp độ trong phiên chơi.
+- Multiplayer qua Socket.IO.
+- Dùng Three.js phục vụ nội bộ từ máy chủ, hạn chế lỗi CDN.
+
+## Chạy local
+
+```bash
 npm install
 npm start
-````
-Mở `http://localhost:3000`. Trên Render: Web Service Node, Build `npm install`, Start `npm start`, gói Free nếu phù hợp. Thay **toàn bộ file** trong repository cũ và Commit; kiểm tra Render triển khai phiên bản mới.
+```
 
-## Điều khiển
-WASD di chuyển, J/click chém, K/Space tuyệt kỹ, Shift né, L đỡ. Điện thoại có joystick và các nút cảm ứng. Nhặt bình hồi máu bằng cách lại gần.
+Mở trình duyệt tại `http://localhost:3000`.
 
-## Giới hạn
-Đây là cải tiến **procedural 3D**, không phải nhân vật skinned/rigged có clip animation chuyên nghiệp. Cần kiểm tra trực tiếp trên trình duyệt và nhiều thiết bị khi triển khai. Không dùng tài sản hoặc nhân vật Demon Slayer chính thức.
+## Triển khai lên Render
+
+- Build Command: `npm install`
+- Start Command: `npm start`
+- Environment Variables: để trống
+
+## Cấu trúc
+
+```text
+blade-spirits-arena-v9-ultimate/
+├── package.json
+├── server.js
+├── README.md
+└── public/
+    ├── index.html
+    ├── style.css
+    └── game.js
+```
+
+## Ghi chú
+
+Đây là prototype gameplay / visual demo. Mã nguồn đã được tổ chức để dễ nâng tiếp, nhưng vẫn cần kiểm thử thực tế trên GitHub + Render với nhiều người chơi.

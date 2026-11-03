@@ -1,4 +1,99 @@
-<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>BLADE SPIRITS V6 — Spirit Reforged</title><link rel="stylesheet" href="/style.css"></head><body>
-<div id="menu"><div class="panel"><p class="kicker">ORIGINAL FANTASY • V6 • CHARACTER DESIGN + SMOOTH COMBAT • PvP & BOSS CO-OP</p><h1>⚔️ BLADE <span>SPIRITS</span></h1><p class="lead">Chọn chế độ, chọn kiếm sĩ, phối hợp săn Boss hoặc chiến đấu PvP cùng bạn bè.</p><div class="modes"><button class="mode selected" data-mode="pvp">⚔️ PvP · Đấu trường<br><small>Người chơi đấu với nhau</small></button><button class="mode" data-mode="boss">👹 Co-op · Săn Boss<br><small>Cùng hợp sức hạ thủ lĩnh</small></button></div><div id="heroes"></div><div class="fields"><label>Tên kiếm sĩ<input id="name" maxlength="16" placeholder="Tên của bạn" value="Kiếm sĩ"></label><label>Mã phòng<input id="room" maxlength="12" placeholder="ARENA" value="ARENA"></label></div><button id="join" class="primary">VÀO ĐẤU TRƯỜNG →</button><div id="menuError"></div><p class="note">Đây là thế giới và nhân vật giả tưởng nguyên bản, không phải game chính thức của bất kỳ anime nào.</p></div></div>
-<div id="hud" hidden><div class="top"><div class="brand">⚔️ BLADE SPIRITS</div><div class="stats"><b id="heroName">Hỏa Vệ</b><span id="roomLabel"></span><span id="playerCount"></span></div><button id="copy">🔗 Sao chép link phòng</button></div><div class="health"><div id="hpfill"></div><strong id="hptext">120 / 120</strong></div><div class="healLegend">💚 Nhặt linh dược trên sân để hồi tối đa 42 HP · tái xuất hiện sau 12 giây</div><div id="bossHud" hidden><b id="bossLabel">👹 THỦ LĨNH · ĐỢT 1</b><div class="bossTrack"><div id="bossFill"></div></div><span id="bossHp">650 / 650</span></div><div class="board" id="board"></div><div class="bottom"><div class="help">WASD di chuyển · Shift né đòn · L đỡ đòn · Chuột định hướng · <b>J / Click</b> chém · <b>K / Space</b> tuyệt kỹ</div><div class="buttons"><button id="dodge">💨 NÉ</button><button id="guard">🛡️ ĐỠ</button><button id="swing">⚔️ CHÉM</button><button id="skill">✨ TUYỆT KỸ <small id="skillcd"></small></button></div></div><div id="joy"><div id="knob"></div></div><div id="comboHud" hidden>⚔️ COMBO <b id="comboValue">1</b> / 3</div><div id="feed"></div><button id="leave">Rời phòng</button></div>
-<script src="/socket.io/socket.io.js"></script><script type="module" src="/game.js"></script></body></html>
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Blade Spirits Arena V9 - Eternal Realm</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="overlay" class="overlay">
+      <div class="panel hero-panel">
+        <div class="title-wrap">
+          <div class="eyebrow">BLADE SPIRITS ARENA</div>
+          <h1>V9 — ETERNAL REALM</h1>
+          <p>Bản nâng cấp tổng thể: chọn nhân vật 3D, 2 chế độ chơi, đấu trường trăng đêm, Boss hợp tác, vật phẩm hồi máu, combo và giao diện hoàn thiện hơn.</p>
+        </div>
+        <div class="lobby-grid">
+          <section class="card left-card">
+            <h2>1. Thông tin phòng</h2>
+            <label>Tên kiếm sĩ</label>
+            <input id="nameInput" value="Dũng" maxlength="18" />
+            <label>Mã phòng</label>
+            <input id="roomInput" value="DUNG01" maxlength="10" />
+            <label>Chế độ</label>
+            <div class="mode-row">
+              <button class="mode-btn active" data-mode="pvp">⚔️ PvP Arena</button>
+              <button class="mode-btn" data-mode="boss">👹 Săn Boss</button>
+            </div>
+            <div class="action-row">
+              <button id="joinBtn" class="primary">VÀO PHÒNG</button>
+              <button id="startBtn" class="secondary">BẮT ĐẦU</button>
+            </div>
+            <div id="statusText" class="status">Chưa kết nối phòng.</div>
+            <div class="tips">
+              <h3>Điều khiển</h3>
+              <ul>
+                <li>WASD / phím mũi tên: di chuyển</li>
+                <li>Chuột: xoay góc nhìn / hướng mặt</li>
+                <li>J hoặc click trái: chém combo</li>
+                <li>K hoặc click phải: tuyệt kỹ</li>
+                <li>Shift: né lướt</li>
+                <li>L: đỡ đòn</li>
+              </ul>
+            </div>
+          </section>
+          <section class="card center-card">
+            <h2>2. Chọn kiếm sĩ</h2>
+            <div id="previewCanvas"></div>
+            <div class="character-strip" id="characterStrip"></div>
+          </section>
+          <section class="card right-card">
+            <h2>3. Tổng quan bản nâng cấp</h2>
+            <div class="feature-pill">Đấu trường trăng đêm có đèn lồng, cổng torii, tre và suối đá</div>
+            <div class="feature-pill">Hai chế độ: PvP cạnh tranh &amp; Co-op săn Boss</div>
+            <div class="feature-pill">6 kiếm sĩ nguyên bản, không dùng tài sản từ thương hiệu/anime có bản quyền</div>
+            <div class="feature-pill">Combo 3 đòn, đỡ đòn, né lướt, linh dược hồi máu, XP và cấp độ</div>
+            <div class="feature-pill">Hiệu ứng kiếm, camera mềm và HUD gọn hơn</div>
+            <div id="characterDetail" class="character-detail"></div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="hud" id="hud">
+      <div class="hud-left glass">
+        <div class="hp-wrap">
+          <span id="playerName">—</span>
+          <span id="playerClass">—</span>
+        </div>
+        <div class="bar hp"><div id="hpBar"></div></div>
+        <div class="bar xp"><div id="xpBar"></div></div>
+        <div class="stat-row">
+          <span id="hpText">HP 0/0</span>
+          <span id="levelText">Lv.1</span>
+        </div>
+      </div>
+      <div class="hud-center glass">
+        <div id="modeText">PvP Arena</div>
+        <div id="roomText">Room: —</div>
+        <div id="bossText" class="boss-hidden">Boss</div>
+      </div>
+      <div class="hud-right glass">
+        <div class="mini-title">BẢNG XẾP HẠNG</div>
+        <div id="scoreboard"></div>
+      </div>
+    </div>
+
+    <div id="crosshair"></div>
+    <div id="feed" class="feed"></div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/vendor/three.min.js"></script>
+  <script src="/game.js"></script>
+</body>
+</html>

@@ -1,9 +1,14 @@
 {
-  "name": "blade-spirits-arena",
-  "version": "6.0.0",
-  "private": true,
-  "description": "Original fantasy sword-fighting 3D multiplayer browser arena",
-  "scripts": {"start": "node server.js", "check": "node --check server.js"},
-  "dependencies": {"express": "^4.21.2", "socket.io": "^4.8.1", "three": "^0.175.0"},
-  "engines": {"node": ">=20"}
+  "name": "blade-spirits-arena-v9-ultimate",
+  "version": "9.0.0",
+  "description": "Blade Spirits Arena V9 Ultimate - multiplayer browser action arena",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.8.1",
+    "three": "^0.169.0"
+  }
 }
