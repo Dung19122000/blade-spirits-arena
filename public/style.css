@@ -6,3 +6,9 @@
 
 /* V3 action HUD refinements */
 .buttons button{transition:transform .11s ease,filter .11s ease;backdrop-filter:blur(8px)}.buttons button:active{transform:scale(.92);filter:brightness(1.4)}#dodge{background:#227f8fcc;border-color:#8becff}.panel{backdrop-filter:blur(18px)}.hero{transition:transform .18s ease,border-color .18s ease,background .18s ease}.hero:hover{transform:translateY(-3px)}
+
+/* V4 healing pickup UI */
+.healLegend{position:fixed;top:118px;left:18px;z-index:6;background:rgba(5,28,25,.78);border:1px solid rgba(85,255,187,.4);border-radius:12px;padding:8px 12px;color:#a3ffce;font-size:12px;pointer-events:none;max-width:330px;backdrop-filter:blur(8px)}
+@media (max-width:680px){.healLegend{top:112px;left:8px;max-width:195px;font-size:10px;padding:5px 7px}}
+
+#comboHud{position:fixed;left:50%;top:22%;transform:translateX(-50%);font:900 18px system-ui;letter-spacing:.12em;background:linear-gradient(90deg,#202744e8,#693d67e8);color:#fff0bf;border:1px solid #fae2a6a1;box-shadow:0 10px 35px #0009,0 0 28px #d67aff45;border-radius:14px;padding:12px 22px;pointer-events:none;z-index:5}#comboHud[hidden]{display:none}#guard{border-color:#92caff88;background:#193652ee;color:#d9f4ff}

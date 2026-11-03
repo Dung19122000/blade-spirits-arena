@@ -17,15 +17,23 @@ const HEROES = {
   frost: { label: 'Băng Tinh', color: 0x9fe9ee, hp: 135, speed: 5.8, damage: 25, cooldown: 580, skillDamage: 39, skillRadius: 6.5, skillCooldown: 6500 },
   shadow: { label: 'Dạ Kiếm', color: 0xb29bff, hp: 105, speed: 7.0, damage: 27, cooldown: 520, skillDamage: 40, skillRadius: 5.6, skillCooldown: 6900 }
 };
+const HEAL_COUNT = 6;
+const HEAL_AMOUNT = 42;
+const HEAL_RESPAWN_MS = 12000;
+function makePickup(index) {
+  const angle = (index / HEAL_COUNT) * Math.PI * 2 + .25;
+  const radius = index % 2 ? 15 : 9;
+  return { id: index, x: Math.cos(angle) * radius, z: Math.sin(angle) * radius, active: true, respawnAt: 0 };
+}
 const rooms = new Map();
 const sockets = new Map();
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 const clean = (v, fallback, max) => (typeof v === 'string' ? v.replace(/[^\p{L}\p{N} _-]/gu, '').trim().slice(0, max) : '') || fallback;
 const now = () => Date.now();
-function roomFor(code) { if (!rooms.has(code)) rooms.set(code, {players: new Map(), created: now(), mode:'pvp', boss:null, bossWave:0, lastBossTick:now()}); return rooms.get(code); }
+function roomFor(code) { if (!rooms.has(code)) rooms.set(code, {players: new Map(), created: now(), mode:'pvp', boss:null, bossWave:0, lastBossTick:now(),pickups:Array.from({length:HEAL_COUNT},(_,i)=>makePickup(i))}); return rooms.get(code); }
 function publicBoss(b) { return b ? {x:b.x,z:b.z,hp:b.hp,maxHp:b.maxHp,phase:b.phase,wave:b.wave,alive:b.alive} : null; }
 function publicPlayer(p) { return {id:p.id,name:p.name,hero:p.hero,x:p.x,z:p.z,angle:p.angle,hp:p.hp,kills:p.kills,deaths:p.deaths,alive:p.alive}; }
-function emitState(code) { const room = rooms.get(code); if(room) io.to(code).emit('state', [...room.players.values()].map(publicPlayer)); io.to(code).emit('bossState', publicBoss(room.boss)); }
+function emitState(code) { const room = rooms.get(code); if(!room)return; io.to(code).emit('state', [...room.players.values()].map(publicPlayer)); io.to(code).emit('bossState', publicBoss(room.boss)); io.to(code).emit('pickups', room.pickups.filter(p=>p.active).map(({id,x,z})=>({id,x,z}))); }
 function leave(socket) {
   const code = sockets.get(socket.id);
   if (!code) return;
@@ -37,8 +45,26 @@ function leave(socket) {
   io.to(code).emit('playerLeft', socket.id);
   if (!room.players.size) rooms.delete(code); else emitState(code);
 }
+function pickupCheck(code, room) {
+  const t=now();
+  for (const item of room.pickups) {
+    if (!item.active && t >= item.respawnAt) item.active=true;
+    if (!item.active) continue;
+    for (const player of room.players.values()) {
+      if(!player.alive || player.hp >= HEROES[player.hero].hp) continue;
+      if(Math.hypot(player.x-item.x,player.z-item.z)>1.75) continue;
+      const before=player.hp;
+      player.hp=Math.min(HEROES[player.hero].hp,player.hp+HEAL_AMOUNT);
+      item.active=false;item.respawnAt=t+HEAL_RESPAWN_MS;
+      io.to(code).emit('healTaken',{id:item.id,playerId:player.id,x:item.x,z:item.z,amount:player.hp-before,name:player.name});
+      break;
+    }
+  }
+}
 function hit(room, attacker, victim, damage) {
   if (!victim.alive || victim.id === attacker.id || now()<victim.invulnerableUntil) return;
+  const guarding = now() < victim.guardUntil;
+  if (guarding) {damage = Math.max(1,Math.round(damage*.25)); io.to(attacker.code).emit('guardFx',{id:victim.id,x:victim.x,z:victim.z});}
   victim.hp = Math.max(0, victim.hp - damage);
   if (victim.hp === 0) {
     victim.alive = false; victim.deaths++; attacker.kills++;
@@ -65,7 +91,7 @@ function tickBoss(code,room){
  if(t-b.lastStrike>(b.phase===2?1450:2200)&&d<8.5){
   b.lastStrike=t;const radius=b.phase===2?5.5:4.1;
   io.to(code).emit('bossAttack',{x:b.x,z:b.z,radius,phase:b.phase});
-  for(const p of targets){if(Math.hypot(p.x-b.x,p.z-b.z)<=radius && now()>=p.invulnerableUntil){p.hp=Math.max(0,p.hp-(b.phase===2?24:16));if(!p.hp){p.alive=false;p.deaths++;setTimeout(()=>{if(room.players.has(p.id)&&!p.alive){p.hp=HEROES[p.hero].hp;p.alive=true;p.x=(Math.random()-.5)*30;p.z=(Math.random()-.5)*30;emitState(code)}},4500)}}}
+  for(const p of targets){if(Math.hypot(p.x-b.x,p.z-b.z)<=radius && now()>=p.invulnerableUntil){const guarded=now()<p.guardUntil;if(guarded)io.to(code).emit('guardFx',{id:p.id,x:p.x,z:p.z});p.hp=Math.max(0,p.hp-Math.round((b.phase===2?24:16)*(guarded?.3:1)));if(!p.hp){p.alive=false;p.deaths++;setTimeout(()=>{if(room.players.has(p.id)&&!p.alive){p.hp=HEROES[p.hero].hp;p.alive=true;p.x=(Math.random()-.5)*30;p.z=(Math.random()-.5)*30;emitState(code)}},4500)}}}
  }
 }
 io.on('connection', socket => {
@@ -81,7 +107,7 @@ io.on('connection', socket => {
     if(!room.players.size){room.mode=requestedMode;room.bossWave=0;room.boss=requestedMode==='boss'?createBoss(1):null;}
     if (room.players.size >= MAX_PLAYERS) { reply({ok:false,error:'Phòng đã đủ 12 người.'}); return; }
     const h = HEROES[hero];
-    const p = {id:socket.id,code,hero,name,x:(Math.random()-.5)*24,z:(Math.random()-.5)*24,angle:0,hp:h.hp,alive:true,kills:0,deaths:0,lastMove:now(),lastAttack:0,lastSkill:0,lastDodge:0,invulnerableUntil:0};
+    const p = {id:socket.id,code,hero,name,x:(Math.random()-.5)*24,z:(Math.random()-.5)*24,angle:0,hp:h.hp,alive:true,kills:0,deaths:0,lastMove:now(),lastAttack:0,lastSkill:0,lastDodge:0,lastCombo:0,comboStep:0,guardUntil:0,lastGuard:0,invulnerableUntil:0};
     room.players.set(socket.id, p); sockets.set(socket.id, code); socket.join(code);
     reply({ok:true,id:socket.id,room:code,mode:room.mode,heroes:HEROES});
     emitState(code);
@@ -104,14 +130,23 @@ io.on('connection', socket => {
     p.z=clamp(p.z+Math.sin(p.angle)*2.5,-ARENA_LIMIT,ARENA_LIMIT);
     io.to(code).emit('dodgeFx',{id:p.id,x:p.x,z:p.z,hero:p.hero});
   });
+  socket.on('guard',()=>{
+    const code=sockets.get(socket.id),p=rooms.get(code)?.players.get(socket.id);if(!p||!p.alive)return;
+    const t=now();if(t-p.lastGuard<2800)return;
+    p.lastGuard=t;p.guardUntil=t+650;
+    io.to(code).emit('guardStart',{id:p.id});
+  });
   socket.on('attack', type => {
     const code=sockets.get(socket.id), room=rooms.get(code), p=room?.players.get(socket.id);
     if (!p || !p.alive) return;
     const h=HEROES[p.hero], t=now(), isSkill=type==='skill';
-    const last=isSkill?'lastSkill':'lastAttack', cooldown=isSkill?h.skillCooldown:h.cooldown;
+    const last=isSkill?'lastSkill':'lastAttack', cooldown=isSkill?h.skillCooldown:Math.max(300,h.cooldown*.76);
     if (t-p[last]<cooldown) return;
     p[last]=t;
-    const range=isSkill?h.skillRadius:3.45, damage=isSkill?h.skillDamage:h.damage;
+    if(!isSkill){p.comboStep=t-p.lastCombo<1150?(p.comboStep%3)+1:1;p.lastCombo=t;}
+    const combo=isSkill?0:p.comboStep;
+    const range=isSkill?h.skillRadius:combo===3?4.1:3.45;
+    const damage=isSkill?h.skillDamage:Math.round(h.damage*(combo===3?1.5:combo===2?1.13:1));
     for(const victim of room.players.values()) {
       if (room.mode==='boss' || victim.id===p.id || !victim.alive) continue;
       const dx=victim.x-p.x,dz=victim.z-p.z,d=Math.hypot(dx,dz);
@@ -120,12 +155,12 @@ io.on('connection', socket => {
       if (isSkill || facing/d > 0.33) hit(room,p,victim,damage);
     }
     if(room.mode==='boss' && room.boss?.alive){const boss=room.boss;const dx=boss.x-p.x,dz=boss.z-p.z,d=Math.hypot(dx,dz);if(d<range+2.25 && (isSkill || (d>0 && (Math.cos(p.angle)*dx+Math.sin(p.angle)*dz)/d>.1))){boss.hp=Math.max(0,boss.hp-damage);io.to(code).emit('bossHit',{x:boss.x,z:boss.z,damage,hero:p.hero});if(!boss.hp){boss.alive=false;io.to(code).emit('bossDefeated',{wave:boss.wave,by:p.name});setTimeout(()=>{if(rooms.get(code)===room&&room.mode==='boss'){room.bossWave++;room.boss=createBoss(room.bossWave+1);emitState(code)}},6000)}}}
-    io.to(code).emit('effect',{id:p.id,type:isSkill?'skill':'attack',hero:p.hero,x:p.x,z:p.z,angle:p.angle});
+    io.to(code).emit('effect',{id:p.id,type:isSkill?'skill':'attack',hero:p.hero,x:p.x,z:p.z,angle:p.angle,combo});
     emitState(code);
   });
   socket.on('disconnect',()=>leave(socket));
 });
-setInterval(()=>{ for (const [code,room] of rooms){tickBoss(code,room);emitState(code);} }, 100);
+setInterval(()=>{ for (const [code,room] of rooms){tickBoss(code,room);pickupCheck(code,room);emitState(code);} }, 100);
 app.use('/vendor',express.static(path.join(__dirname,'node_modules/three/build')));
 app.use(express.static(path.join(__dirname,'public')));
 app.get('/health',(req,res)=>res.json({ok:true,rooms:rooms.size}));
