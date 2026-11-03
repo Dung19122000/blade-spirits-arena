@@ -53,3 +53,7 @@ blade-spirits-arena-v9-ultimate/
 - Chỉ đóng sảnh sau khi máy chủ xác nhận người chơi đã vào phòng.
 
 Sau khi cập nhật ba file `public/index.html`, `public/game.js`, `README.md`, hãy deploy Render và hard refresh bằng Ctrl+Shift+R.
+
+## V9.2 fix
+
+Sửa lỗi `ReferenceError: rand is not defined` khi dựng bối cảnh. Bản ZIP V9.2 giữ bản sửa Three.js module từ V9.1.

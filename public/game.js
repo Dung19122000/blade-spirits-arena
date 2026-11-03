@@ -1,5 +1,8 @@
 import * as THREE from '/vendor/three.module.js';
 
+// Utility used when generating arena scenery and ambient particles.
+function rand(min, max) { return Math.random() * (max - min) + min; }
+
 const socket = window.io();
 window.addEventListener('error', (event) => {
   const status = document.getElementById('statusText');
