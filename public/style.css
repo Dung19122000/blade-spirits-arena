@@ -71,3 +71,7 @@ button:hover { transform:translateY(-1px); }
   .hud { flex-direction:column; align-items:stretch; }
   .hud-left,.hud-right,.hud-center { width:auto; }
 }
+/* V9.1: fix dark character-selector text on browser default button styles */
+.char-card { color: var(--text); }
+.char-card strong { color: #f4f7ff; }
+.char-card small { color: #aebfd5; }

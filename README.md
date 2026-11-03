@@ -44,3 +44,12 @@ blade-spirits-arena-v9-ultimate/
 ## Ghi chú
 
 Đây là prototype gameplay / visual demo. Mã nguồn đã được tổ chức để dễ nâng tiếp, nhưng vẫn cần kiểm thử thực tế trên GitHub + Render với nhiều người chơi.
+
+## Bản sửa lỗi V9.1
+
+- Khắc phục màn hình xem trước nhân vật trống và không thể vào trò chơi: Three.js 0.169 phân phối `three.module.js`, không phải `three.min.js`.
+- Chuyển `game.js` sang ES Module và nạp thư viện trực tiếp từ `/vendor/three.module.js`.
+- Thêm trạng thái lỗi mạng và lỗi khởi động.
+- Chỉ đóng sảnh sau khi máy chủ xác nhận người chơi đã vào phòng.
+
+Sau khi cập nhật ba file `public/index.html`, `public/game.js`, `README.md`, hãy deploy Render và hard refresh bằng Ctrl+Shift+R.

@@ -1,4 +1,14 @@
-const socket = io();
+import * as THREE from '/vendor/three.module.js';
+
+const socket = window.io();
+window.addEventListener('error', (event) => {
+  const status = document.getElementById('statusText');
+  if (status) status.textContent = 'Lỗi khởi động: ' + (event.message || 'Không xác định');
+});
+window.addEventListener('unhandledrejection', (event) => {
+  const status = document.getElementById('statusText');
+  if (status) status.textContent = 'Lỗi tải game: ' + (event.reason?.message || String(event.reason));
+});
 
 const CHARACTERS = {
   ember: { key:'ember', name:'Hỏa Vệ', title:'Kiếm sĩ bùng nổ', color:0xff7043, accent:'#ff7043', hp:145, desc:'Áp sát mạnh, chém nặng và tuyệt kỹ gây sát thương lớn phía trước.' },
@@ -70,13 +80,15 @@ function toast(text){
 }
 
 socket.on('connect', () => { localId = socket.id; toast('Đã kết nối máy chủ.'); });
-socket.on('messageLog', msg => toast(msg));
+socket.on('messageLog', msg => { toast(msg); ui.statusText.textContent = msg; });
+socket.on('connect_error', () => { ui.statusText.textContent = 'Không kết nối được máy chủ. Kiểm tra Render và tải lại trang.'; });
+socket.on('disconnect', () => { joined = false; ui.overlay.style.display = 'flex'; ui.statusText.textContent = 'Mất kết nối máy chủ, đang thử kết nối lại...'; });
 socket.on('roomState', state => {
   roomState = state;
   ui.roomText.textContent = `Room: ${state.code}`;
   ui.modeText.textContent = state.mode === 'boss' ? 'Co-op Săn Boss' : 'PvP Arena';
-  ui.statusText.textContent = `Phòng ${state.code} • ${state.players.length} người chơi`;
-  if (joined) ui.overlay.style.display = 'none';
+  ui.statusText.textContent = `Phòng ${state.code} • ${state.players.length} người chơi`; 
+  if (state.players.some(p => p.id === socket.id)) { joined = true; ui.overlay.style.display = 'none'; }
   updateScoreboard();
 });
 
@@ -458,6 +470,7 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
 window.addEventListener('mousedown', (e) => {
+  if (!joined || ui.overlay.style.display !== 'none') return;
   if (e.button === 0) socket.emit('action', { type:'attack' });
   if (e.button === 2) socket.emit('action', { type:'skill' });
 });
