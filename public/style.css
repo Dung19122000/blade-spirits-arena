@@ -12,3 +12,9 @@
 @media (max-width:680px){.healLegend{top:112px;left:8px;max-width:195px;font-size:10px;padding:5px 7px}}
 
 #comboHud{position:fixed;left:50%;top:22%;transform:translateX(-50%);font:900 18px system-ui;letter-spacing:.12em;background:linear-gradient(90deg,#202744e8,#693d67e8);color:#fff0bf;border:1px solid #fae2a6a1;box-shadow:0 10px 35px #0009,0 0 28px #d67aff45;border-radius:14px;padding:12px 22px;pointer-events:none;z-index:5}#comboHud[hidden]{display:none}#guard{border-color:#92caff88;background:#193652ee;color:#d9f4ff}
+
+/* V6 subtle high-quality HUD polish */
+.hero,.mode,.primary,.buttons button{transition:transform .18s ease,box-shadow .18s ease,background .18s ease,border-color .18s ease}
+.hero:hover,.mode:hover{transform:translateY(-2px)}
+.primary:hover{box-shadow:0 8px 34px #7e6efa55}
+@media (prefers-reduced-motion:reduce){.hero,.mode,.primary,.buttons button{transition:none}}

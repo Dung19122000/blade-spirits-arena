@@ -1,22 +1,22 @@
-# BLADE SPIRITS ARENA V5 — Combo & Guardian
+# BLADE SPIRITS ARENA V6 — SPIRIT REFORGED
 
-Bản V5 tiếp tục từ V4, giữ **PvP**, **Co-op săn Boss**, **6 kiếm sĩ**, **linh dược hồi 42 HP / hồi sinh 12 giây**, phòng 12 người và chơi trên điện thoại/PC.
+Prototype game đấu kiếm 3D **nhân vật nguyên bản**; hỗ trợ **PvP** và **Co-op săn Boss** (tối đa 12 người/phòng theo cấu hình server). Kế thừa cơ chế V5: combo 3 đòn, đỡ đòn, né, tuyệt kỹ, bình hồi máu (+42 HP, xuất hiện lại sau 12 giây).
 
-## Nâng cấp V5
+## Nâng cấp V6
+- Kiếm sĩ 3D có tóc nhiều lớp, mắt, phụ kiện áo giáp, thắt lưng, dải vải phụ và đèn kiếm, với bảng màu riêng cho 6 nhân vật. Các mẫu được **dựng bằng Three.js**, không dùng hình ảnh hay model nhân vật có bản quyền.
+- Hoạt ảnh vải bổ sung, nhịp chạy và vung kiếm chuyển tiếp mềm bằng nội suy theo thời gian thực.
+- Tối ưu cấu hình bóng đổ và độ phân giải khi chơi trên thiết bị cảm ứng.
+- Chỉnh giao diện chọn nhân vật và HUD.
 
-- **Combo 3 hit:** Chém liên tục (J hoặc click / nút CHÉM) trong 1,15 giây để nối chuỗi 1→2→3; đòn 2 mạnh hơn 13%, đòn 3 mạnh hơn 50% và có tầm đánh dài hơn. Máy chủ quyết định combo và sát thương.
-- **Đỡ đòn:** Bấm **L** trên PC hoặc **ĐỠ** trên điện thoại; giảm 75% sát thương PvP và 70% đòn Boss trong 650ms, hồi 2,8 giây. Server kiểm tra thời gian và thiệt hại.
-- **Hoạt ảnh:** Phân biệt vung kiếm của 3 nhịp combo, tư thế đỡ, nhún và xoay thân, kết hợp chuyển động procedural của V4.
-- HUD combo mới và hiệu ứng đỡ đòn.
-
-## Cài đặt
-
-Node.js 20+; trong thư mục chứa package.json chạy `npm install` rồi `npm start`. Mở http://localhost:3000 ; kiểm tra /health. Có thể triển khai lên Render Web Service (Build: `npm install`, Start: `npm start`) trên repo `blade-spirits-arena` cũ.
+## Cài và chạy
+````bash
+npm install
+npm start
+````
+Mở `http://localhost:3000`. Trên Render: Web Service Node, Build `npm install`, Start `npm start`, gói Free nếu phù hợp. Thay **toàn bộ file** trong repository cũ và Commit; kiểm tra Render triển khai phiên bản mới.
 
 ## Điều khiển
-
-WASD di chuyển, chuột định hướng; J / click chém combo; K / Space tuyệt kỹ; Shift né; **L đỡ đòn**. Trên điện thoại sử dụng joystick và các nút ảo. Di chuyển tới bình xanh để hồi máu.
+WASD di chuyển, J/click chém, K/Space tuyệt kỹ, Shift né, L đỡ. Điện thoại có joystick và các nút cảm ứng. Nhặt bình hồi máu bằng cách lại gần.
 
 ## Giới hạn
-
-Prototype Three.js, mô hình nhân vật nguyên bản dựng procedural, chưa có rig/mocap hoặc animation chuyên nghiệp, chưa đảm bảo chơi mượt trên mọi máy. Chưa kiểm thử thực tế nhiều máy với Render. Không dùng tài sản Demon Slayer.
+Đây là cải tiến **procedural 3D**, không phải nhân vật skinned/rigged có clip animation chuyên nghiệp. Cần kiểm tra trực tiếp trên trình duyệt và nhiều thiết bị khi triển khai. Không dùng tài sản hoặc nhân vật Demon Slayer chính thức.

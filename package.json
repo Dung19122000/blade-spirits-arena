@@ -1,6 +1,6 @@
 {
   "name": "blade-spirits-arena",
-  "version": "1.0.0",
+  "version": "6.0.0",
   "private": true,
   "description": "Original fantasy sword-fighting 3D multiplayer browser arena",
   "scripts": {"start": "node server.js", "check": "node --check server.js"},

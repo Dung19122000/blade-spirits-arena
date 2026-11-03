@@ -76,7 +76,7 @@ function updateJoy(e){const r=$('joy').getBoundingClientRect(),x=(e.clientX-r.le
 function init3d(){
  scene=new THREE.Scene();scene.background=new THREE.Color(0x0b1429);scene.fog=new THREE.Fog(0x0b1429,32,95);
  camera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.1,180);
- renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.prepend(renderer.domElement);
+ renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,matchMedia("(pointer:coarse)").matches?1.3:1.75));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=!matchMedia("(pointer:coarse)").matches;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.prepend(renderer.domElement);
  clock=new THREE.Clock();scene.add(new THREE.HemisphereLight(0xadc4fa,0x37283f,2));const sun=new THREE.DirectionalLight(0xffd9a0,3);sun.position.set(20,40,17);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-40;sun.shadow.camera.right=40;sun.shadow.camera.top=40;sun.shadow.camera.bottom=-40;scene.add(sun);
  const ground=new THREE.Mesh(new THREE.CircleGeometry(34,96),new THREE.MeshStandardMaterial({color:0x273443,roughness:.85,metalness:.2}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
  const outer=new THREE.Mesh(new THREE.RingGeometry(25.3,26.4,96),new THREE.MeshStandardMaterial({color:0xd5a26b,emissive:0x8d5130,emissiveIntensity:.5,side:THREE.DoubleSide}));outer.rotation.x=-Math.PI/2;outer.position.y=.035;scene.add(outer);
@@ -141,7 +141,36 @@ function makeFighter(key){
  part(sword,.13,1.6,.06,0,.78,0,steel);part(sword,.16,.44,.17,0,-.24,0,dark);part(sword,.48,.09,.25,0,0,0,mat);sword.rotation.z=-.65;
  const halo=new THREE.Mesh(new THREE.RingGeometry(.65,.76,40),new THREE.MeshBasicMaterial({color:h.color,side:THREE.DoubleSide,transparent:true,opacity:.68}));halo.rotation.x=-Math.PI/2;halo.position.y=.065;g.add(halo);
  g.leftLeg=leftLeg;g.rightLeg=rightLeg;g.leftArm=leftArm;g.rightArm=rightArm;g.chest=body;g.cape=cape;g.sword=sword;g.armor=mat;g.targetX=0;g.targetZ=0;g.targetAngle=0;g.stride=0;g.swingAt=-1e6;g.flash=0;g.healPulse=0;g.lastPosition=null;g.motionWeight=0;g.comboIndex=0;g.guardAt=-1e6;g.swingCombo=1;g.swordTrail=null;
- scene.add(g);return g;
+ decorateFighter(g,key);scene.add(g);return g;
+}
+
+// V6 original procedural character art: hand-built details, no external character assets.
+function decorateFighter(g,key){
+ const colors={ember:[0x331d22,0xffab4b],tide:[0x1b3664,0x92eafa],storm:[0x342747,0xffe68f],bloom:[0x6a294d,0xffc2dc],frost:[0xe2f6ff,0x7cddf0],shadow:[0x1d1639,0xc0a0ff]};
+ const [hairColor,accent]=colors[key]||colors.ember;
+ const hairMat=new THREE.MeshStandardMaterial({color:hairColor,roughness:.8}), detail=new THREE.MeshStandardMaterial({color:accent,roughness:.35,metalness:.45}), eyeMat=new THREE.MeshBasicMaterial({color:0x13182a}), bootMat=new THREE.MeshStandardMaterial({color:0x0b1322,roughness:.65});
+ const add=(par,geom,mat,x,y,z)=>{const m=new THREE.Mesh(geom,mat);m.position.set(x,y,z);m.castShadow=true;par.add(m);return m};
+ const torso=g.chest;
+ // layered hair crown and individual sweeping locks
+ add(torso,new THREE.SphereGeometry(.36,12,10),hairMat,0,2.95,-.045).scale.set(1.07,.65,1.02);
+ for(let i=0;i<5;i++){const t=(i-2)*.14;const spike=add(torso,new THREE.ConeGeometry(.115,.43,6),hairMat,t,3.17,-.06);spike.rotation.z=(i-2)*-.22;}
+ for(const sx of [-1,1]){
+  add(torso,new THREE.SphereGeometry(.047,8,6),eyeMat,sx*.135,2.79,.303);
+  add(torso,new THREE.BoxGeometry(.24,.07,.17),detail,sx*.5,2.43,.10);
+  const plate=add(torso,new THREE.BoxGeometry(.35,.27,.52),detail,sx*.69,2.28,-.03);plate.rotation.z=sx*.22;
+  add(g,new THREE.BoxGeometry(.38,.18,.57),bootMat,sx*.26,.14,.10);
+ }
+ add(torso,new THREE.BoxGeometry(.87,.14,.56),detail,0,1.42,.02);
+ add(torso,new THREE.BoxGeometry(.20,.17,.10),bootMat,0,1.45,.34);
+ // cloth tail panels animate independently, not just a rigid cloak
+ g.tailL=new THREE.Group();g.tailL.position.set(-.27,1.90,-.27);torso.add(g.tailL);
+ g.tailR=new THREE.Group();g.tailR.position.set(.27,1.90,-.27);torso.add(g.tailR);
+ for(const [i,t] of [g.tailL,g.tailR].entries())add(t,new THREE.BoxGeometry(.37,1.12,.065),new THREE.MeshStandardMaterial({color:roster[key].color,side:THREE.DoubleSide,roughness:.8}),0,-.48,-.16).rotation.z=i?-.075:.075;
+ // lightweight sword glow while performing a combo
+ const edge=add(g.sword,new THREE.BoxGeometry(.06,1.5,.075),new THREE.MeshBasicMaterial({color:accent,transparent:true,opacity:.45}),.12,.81,0);
+ g.edge=edge;
+ const scarf=add(torso,new THREE.TorusGeometry(.33,.065,5,16),detail,0,2.37,0);scarf.rotation.x=Math.PI/2;
+ g.userData.characterStyle=key;
 }
 function makeEffect(e){const color=roster[e.hero]?.color||0xffffff;let mesh=new THREE.Mesh(new THREE.TorusGeometry(e.type==='skill'?4:2.1,.1,8,54,Math.PI*(e.type==='skill'?2:1.15)),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.95,side:THREE.DoubleSide}));mesh.rotation.x=-Math.PI/2;mesh.rotation.z=e.angle;mesh.position.set(e.x,.35,e.z);scene.add(mesh);effects.push({mesh,t:0,max:e.type==='skill'?.65:.3});let m=models.get(e.id);if(m){m.swingAt=elapsed;m.swingCombo=e.combo||1;m.flash=.22;if(e.type==='skill')screenShake=Math.max(screenShake,.18)}}
 // V3 motion pipeline: frame-rate independent procedural character animation.
@@ -167,6 +196,8 @@ function animateFighter(m,p,dt,time){
  m.chest.rotation.x=soft(m.chest.rotation.x,Math.abs(walk)*.04+slash*.13-guardPose*.1,9,dt);
  m.position.y=soft(m.position.y,(Math.abs(walk)*.06)+Math.sin(time*2.5)*.012+ (slash>0?Math.sin(phase*Math.PI)*.055:0),9,dt);
  m.cape.rotation.x=soft(m.cape.rotation.x,-.12-speed*.053+Math.sin(time*3+m.stride)*.08,5,dt);m.cape.rotation.z=soft(m.cape.rotation.z,Math.sin(time*2.4+m.stride*.33)*.08+walk*.035,4.5,dt);
+ if(m.tailL&&m.tailR){m.tailL.rotation.x=soft(m.tailL.rotation.x,-.14-speed*.065+Math.sin(time*5)*.09,6,dt);m.tailR.rotation.x=soft(m.tailR.rotation.x,-.12-speed*.07+Math.sin(time*5+.9)*.10,6,dt);m.tailL.rotation.z=soft(m.tailL.rotation.z,walk*.095,5,dt);m.tailR.rotation.z=soft(m.tailR.rotation.z,-walk*.095,5,dt);}
+ if(m.edge)m.edge.material.opacity=soft(m.edge.material.opacity,swipe?.85:.23,10,dt);
  const a=m.rotation.y,b=-p.angle;m.rotation.y=a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*Math.min(1,dt*11);
  if(m.healPulse>0){m.healPulse=Math.max(0,m.healPulse-dt);m.armor.emissiveIntensity=Math.max(m.armor.emissiveIntensity,m.healPulse*1.5);}
  if(m.flash>0){m.flash-=dt;m.armor.emissiveIntensity=soft(m.armor.emissiveIntensity,m.flash>0?.75:0,18,dt)}
