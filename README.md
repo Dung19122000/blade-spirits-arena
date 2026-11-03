@@ -1,30 +1,20 @@
-# BLADE SPIRITS ARENA V2 — PvP & Boss Co-op
+# BLADE SPIRITS ARENA V3 — Smooth Combat
 
-Game kiếm sĩ fantasy 3D nguyên bản. Không sử dụng tài sản Demon Slayer.
+Game fantasy 3D nguyên bản, hai chế độ PvP và Co-op đánh Boss, tối đa 12 người/phòng qua Socket.IO.
 
-## Chế độ
-- **PvP:** Người chơi trong cùng mã phòng đấu với nhau; hạ gục và hồi sinh.
-- **Boss Co-op:** Người chơi cùng phòng hợp lực chống thủ lĩnh AI; Boss đuổi người gần nhất, đánh phạm vi, chuyển pha khi dưới 45% máu, tăng sức mạnh qua từng đợt. Trong chế độ này kiếm sĩ không gây sát thương cho nhau.
-- Mỗi phòng tối đa 12 người. Hai chế độ cần mã phòng khác nhau.
+## Nâng cấp V3
+- Khớp tay/chân chuyển động độc lập với dáng chạy theo vận tốc.
+- Chém kiếm có chuyển động vung/hồi kiếm đồng bộ sự kiện từ máy chủ.
+- Áo choàng đung đưa, thân người nghiêng, hiệu ứng nhận đòn.
+- Camera đuổi mượt theo thời gian thực.
+- **Né đòn**: Shift trên máy tính, nút NÉ trên điện thoại; máy chủ giới hạn 2,8 giây/lần, 0,31 giây miễn sát thương.
+- Giữ hai chế độ PvP/Boss và hệ thống chọn 6 kiếm sĩ.
 
-## Triển khai Render
-1. Tạo repository GitHub riêng, tải toàn bộ nội dung thư mục này lên (giữ `public/index.html`, `public/style.css`, `public/game.js`).
-2. Render → New → Web Service → chọn repository.
-3. Language Node, build `npm install`, start `npm start`, gói Free.
-4. Khi Live, mở đường link HTTPS, chọn chế độ và nhân vật; mời bạn bè dùng nút sao chép link.
+## Chạy thử
+`npm install` rồi `npm start`; mở http://localhost:3000.
 
-## Chạy tại máy
-```bash
-npm install
-npm start
-```
-Mở http://localhost:3000
+## Deploy Render
+Node / `npm install` / `npm start`. Thay tất cả file trong repository cũ, bao gồm `public/game.js`, `public/index.html`, `public/style.css`, `server.js`, `package.json`.
 
-## Điều khiển
-WASD di chuyển; chuột định hướng; J / click chém; K / Space tuyệt kỹ. Điện thoại dùng joystick và hai nút kỹ năng.
-
-## Giới hạn bản thử nghiệm
-- Đồ họa nhân vật được dựng bằng Three.js (stylized) chứ chưa phải model anime rigged.
-- Chuyển động vị trí dùng nội suy, game không có matchmaking, lưu tài khoản hay chống gian lận cấp production.
-- Nếu Render Free ngủ, lượt kết nối đầu có thể chậm.
-- Chỉ dùng một instance server; trạng thái phòng lưu trong RAM.
+## Lưu ý
+Hoạt ảnh V3 là hoạt ảnh procedural đơn giản chứ không phải motion capture. Vẫn cần thử trên trình duyệt thật và nhiều người chơi. Không sử dụng nhân vật hoặc tài sản chính thức từ Demon Slayer.

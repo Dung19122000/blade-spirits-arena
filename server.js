@@ -38,7 +38,7 @@ function leave(socket) {
   if (!room.players.size) rooms.delete(code); else emitState(code);
 }
 function hit(room, attacker, victim, damage) {
-  if (!victim.alive || victim.id === attacker.id) return;
+  if (!victim.alive || victim.id === attacker.id || now()<victim.invulnerableUntil) return;
   victim.hp = Math.max(0, victim.hp - damage);
   if (victim.hp === 0) {
     victim.alive = false; victim.deaths++; attacker.kills++;
@@ -65,7 +65,7 @@ function tickBoss(code,room){
  if(t-b.lastStrike>(b.phase===2?1450:2200)&&d<8.5){
   b.lastStrike=t;const radius=b.phase===2?5.5:4.1;
   io.to(code).emit('bossAttack',{x:b.x,z:b.z,radius,phase:b.phase});
-  for(const p of targets){if(Math.hypot(p.x-b.x,p.z-b.z)<=radius){p.hp=Math.max(0,p.hp-(b.phase===2?24:16));if(!p.hp){p.alive=false;p.deaths++;setTimeout(()=>{if(room.players.has(p.id)&&!p.alive){p.hp=HEROES[p.hero].hp;p.alive=true;p.x=(Math.random()-.5)*30;p.z=(Math.random()-.5)*30;emitState(code)}},4500)}}}
+  for(const p of targets){if(Math.hypot(p.x-b.x,p.z-b.z)<=radius && now()>=p.invulnerableUntil){p.hp=Math.max(0,p.hp-(b.phase===2?24:16));if(!p.hp){p.alive=false;p.deaths++;setTimeout(()=>{if(room.players.has(p.id)&&!p.alive){p.hp=HEROES[p.hero].hp;p.alive=true;p.x=(Math.random()-.5)*30;p.z=(Math.random()-.5)*30;emitState(code)}},4500)}}}
  }
 }
 io.on('connection', socket => {
@@ -81,7 +81,7 @@ io.on('connection', socket => {
     if(!room.players.size){room.mode=requestedMode;room.bossWave=0;room.boss=requestedMode==='boss'?createBoss(1):null;}
     if (room.players.size >= MAX_PLAYERS) { reply({ok:false,error:'Phòng đã đủ 12 người.'}); return; }
     const h = HEROES[hero];
-    const p = {id:socket.id,code,hero,name,x:(Math.random()-.5)*24,z:(Math.random()-.5)*24,angle:0,hp:h.hp,alive:true,kills:0,deaths:0,lastMove:now(),lastAttack:0,lastSkill:0};
+    const p = {id:socket.id,code,hero,name,x:(Math.random()-.5)*24,z:(Math.random()-.5)*24,angle:0,hp:h.hp,alive:true,kills:0,deaths:0,lastMove:now(),lastAttack:0,lastSkill:0,lastDodge:0,invulnerableUntil:0};
     room.players.set(socket.id, p); sockets.set(socket.id, code); socket.join(code);
     reply({ok:true,id:socket.id,room:code,mode:room.mode,heroes:HEROES});
     emitState(code);
@@ -96,6 +96,13 @@ io.on('connection', socket => {
     p.x=clamp(p.x+clamp(dx,-1,1)*mul*HEROES[p.hero].speed*dt,-ARENA_LIMIT,ARENA_LIMIT);
     p.z=clamp(p.z+clamp(dz,-1,1)*mul*HEROES[p.hero].speed*dt,-ARENA_LIMIT,ARENA_LIMIT);
     p.angle=a % (Math.PI*2);
+  });
+  socket.on('dodge',()=>{
+    const code=sockets.get(socket.id),p=rooms.get(code)?.players.get(socket.id);if(!p||!p.alive)return;
+    const t=now();if(t-p.lastDodge<2800)return;p.lastDodge=t;p.invulnerableUntil=t+310;
+    p.x=clamp(p.x+Math.cos(p.angle)*2.5,-ARENA_LIMIT,ARENA_LIMIT);
+    p.z=clamp(p.z+Math.sin(p.angle)*2.5,-ARENA_LIMIT,ARENA_LIMIT);
+    io.to(code).emit('dodgeFx',{id:p.id,x:p.x,z:p.z,hero:p.hero});
   });
   socket.on('attack', type => {
     const code=sockets.get(socket.id), room=rooms.get(code), p=room?.players.get(socket.id);
