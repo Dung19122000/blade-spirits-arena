@@ -22,9 +22,10 @@ const sockets = new Map();
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 const clean = (v, fallback, max) => (typeof v === 'string' ? v.replace(/[^\p{L}\p{N} _-]/gu, '').trim().slice(0, max) : '') || fallback;
 const now = () => Date.now();
-function roomFor(code) { if (!rooms.has(code)) rooms.set(code, {players: new Map(), created: now()}); return rooms.get(code); }
+function roomFor(code) { if (!rooms.has(code)) rooms.set(code, {players: new Map(), created: now(), mode:'pvp', boss:null, bossWave:0, lastBossTick:now()}); return rooms.get(code); }
+function publicBoss(b) { return b ? {x:b.x,z:b.z,hp:b.hp,maxHp:b.maxHp,phase:b.phase,wave:b.wave,alive:b.alive} : null; }
 function publicPlayer(p) { return {id:p.id,name:p.name,hero:p.hero,x:p.x,z:p.z,angle:p.angle,hp:p.hp,kills:p.kills,deaths:p.deaths,alive:p.alive}; }
-function emitState(code) { const room = rooms.get(code); if(room) io.to(code).emit('state', [...room.players.values()].map(publicPlayer)); }
+function emitState(code) { const room = rooms.get(code); if(room) io.to(code).emit('state', [...room.players.values()].map(publicPlayer)); io.to(code).emit('bossState', publicBoss(room.boss)); }
 function leave(socket) {
   const code = sockets.get(socket.id);
   if (!code) return;
@@ -51,6 +52,22 @@ function hit(room, attacker, victim, damage) {
     }, 4000);
   }
 }
+function createBoss(wave){const hp=650+(wave-1)*340;return {x:0,z:0,hp,maxHp:hp,wave,phase:1,alive:true,lastStrike:0,lastMove:now()};}
+function tickBoss(code,room){
+ const b=room.boss;if(room.mode!=='boss'||!b?.alive)return;
+ const t=now(),dt=clamp((t-b.lastMove)/1000,0,.12);b.lastMove=t;
+ const targets=[...room.players.values()].filter(p=>p.alive);if(!targets.length)return;
+ const target=targets.reduce((a,p)=>Math.hypot(p.x-b.x,p.z-b.z)<Math.hypot(a.x-b.x,a.z-b.z)?p:a,targets[0]);
+ const dx=target.x-b.x,dz=target.z-b.z,d=Math.hypot(dx,dz)||1;
+ const speed=b.hp/b.maxHp<.45?4.2:3;
+ if(d>3.4){b.x=clamp(b.x+dx/d*speed*dt,-22,22);b.z=clamp(b.z+dz/d*speed*dt,-22,22);}
+ b.phase=b.hp/b.maxHp<.45?2:1;
+ if(t-b.lastStrike>(b.phase===2?1450:2200)&&d<8.5){
+  b.lastStrike=t;const radius=b.phase===2?5.5:4.1;
+  io.to(code).emit('bossAttack',{x:b.x,z:b.z,radius,phase:b.phase});
+  for(const p of targets){if(Math.hypot(p.x-b.x,p.z-b.z)<=radius){p.hp=Math.max(0,p.hp-(b.phase===2?24:16));if(!p.hp){p.alive=false;p.deaths++;setTimeout(()=>{if(room.players.has(p.id)&&!p.alive){p.hp=HEROES[p.hero].hp;p.alive=true;p.x=(Math.random()-.5)*30;p.z=(Math.random()-.5)*30;emitState(code)}},4500)}}}
+ }
+}
 io.on('connection', socket => {
   socket.on('join', (payload = {}, reply = () => {}) => {
     if (typeof reply !== 'function') return;
@@ -59,11 +76,14 @@ io.on('connection', socket => {
     const name = clean(payload.name, 'Kiếm sĩ', 16);
     const hero = Object.hasOwn(HEROES, payload.hero) ? payload.hero : 'ember';
     const room = roomFor(code);
+    const requestedMode=payload.mode==='boss'?'boss':'pvp';
+    if(room.players.size && room.mode!==requestedMode){reply({ok:false,error:'Phòng này đang ở chế độ khác. Hãy đổi mã phòng.'});return;}
+    if(!room.players.size){room.mode=requestedMode;room.bossWave=0;room.boss=requestedMode==='boss'?createBoss(1):null;}
     if (room.players.size >= MAX_PLAYERS) { reply({ok:false,error:'Phòng đã đủ 12 người.'}); return; }
     const h = HEROES[hero];
     const p = {id:socket.id,code,hero,name,x:(Math.random()-.5)*24,z:(Math.random()-.5)*24,angle:0,hp:h.hp,alive:true,kills:0,deaths:0,lastMove:now(),lastAttack:0,lastSkill:0};
     room.players.set(socket.id, p); sockets.set(socket.id, code); socket.join(code);
-    reply({ok:true,id:socket.id,room:code,heroes:HEROES});
+    reply({ok:true,id:socket.id,room:code,mode:room.mode,heroes:HEROES});
     emitState(code);
   });
   socket.on('move', data => {
@@ -86,18 +106,19 @@ io.on('connection', socket => {
     p[last]=t;
     const range=isSkill?h.skillRadius:3.45, damage=isSkill?h.skillDamage:h.damage;
     for(const victim of room.players.values()) {
-      if (victim.id===p.id || !victim.alive) continue;
+      if (room.mode==='boss' || victim.id===p.id || !victim.alive) continue;
       const dx=victim.x-p.x,dz=victim.z-p.z,d=Math.hypot(dx,dz);
       if (d>range) continue;
       const facing=Math.cos(p.angle)*dx + Math.sin(p.angle)*dz;
       if (isSkill || facing/d > 0.33) hit(room,p,victim,damage);
     }
+    if(room.mode==='boss' && room.boss?.alive){const boss=room.boss;const dx=boss.x-p.x,dz=boss.z-p.z,d=Math.hypot(dx,dz);if(d<range+2.25 && (isSkill || (d>0 && (Math.cos(p.angle)*dx+Math.sin(p.angle)*dz)/d>.1))){boss.hp=Math.max(0,boss.hp-damage);io.to(code).emit('bossHit',{x:boss.x,z:boss.z,damage,hero:p.hero});if(!boss.hp){boss.alive=false;io.to(code).emit('bossDefeated',{wave:boss.wave,by:p.name});setTimeout(()=>{if(rooms.get(code)===room&&room.mode==='boss'){room.bossWave++;room.boss=createBoss(room.bossWave+1);emitState(code)}},6000)}}}
     io.to(code).emit('effect',{id:p.id,type:isSkill?'skill':'attack',hero:p.hero,x:p.x,z:p.z,angle:p.angle});
     emitState(code);
   });
   socket.on('disconnect',()=>leave(socket));
 });
-setInterval(()=>{ for (const code of rooms.keys()) emitState(code); }, 100);
+setInterval(()=>{ for (const [code,room] of rooms){tickBoss(code,room);emitState(code);} }, 100);
 app.use('/vendor',express.static(path.join(__dirname,'node_modules/three/build')));
 app.use(express.static(path.join(__dirname,'public')));
 app.get('/health',(req,res)=>res.json({ok:true,rooms:rooms.size}));

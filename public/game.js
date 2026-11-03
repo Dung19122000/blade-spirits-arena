@@ -8,11 +8,13 @@ const roster={
  frost:{name:'Băng Tinh',icon:'❄️',desc:'Hơi lạnh sắc bén · Đánh chắc chắn',color:0x9fe9ee,hp:135,cd:6500},
  shadow:{name:'Dạ Kiếm',icon:'🌙',desc:'Ẩn ảnh linh hoạt · Tuyệt kỹ mạnh',color:0xb29bff,hp:105,cd:6900}
 };
-let hero='ember',me=null,players=new Map(),models=new Map(),keys=new Set(),lastSkill=-Infinity,scene,camera,renderer,clock,arena,effects=[],touchDir={x:0,z:0},heading=0;
+let mode='pvp',bossData=null,bossModel=null,bossAnim=0,hero='ember',me=null,players=new Map(),models=new Map(),keys=new Set(),lastSkill=-Infinity,scene,camera,renderer,clock,arena,effects=[],touchDir={x:0,z:0},heading=0;
 let socket=io({autoConnect:false,reconnection:true});
+document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('selected',x===b))});
 const heroBtns=$('heroes');
 for(const [key,h] of Object.entries(roster)){let b=document.createElement('button');b.className='hero'+(key===hero?' selected':'');b.innerHTML=`<div class="symbol">${h.icon}</div><b>${h.name}</b><span>${h.desc}</span>`;b.onclick=()=>{hero=key;[...heroBtns.children].forEach(x=>x.classList.remove('selected'));b.classList.add('selected')};heroBtns.append(b)}
 const params=new URLSearchParams(location.search);if(params.has('room'))$('room').value=params.get('room').slice(0,12);
+if(params.get('mode')==='boss'){mode='boss';document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('selected',b.dataset.mode===mode))}
 let connecting=false;
 $('join').onclick=()=>{
  if(connecting)return;connecting=true;$('join').disabled=true;$('menuError').textContent='Đang kết nối máy chủ...';
@@ -20,12 +22,12 @@ $('join').onclick=()=>{
  setTimeout(()=>{if(connecting){connecting=false;$('join').disabled=false;$('menuError').textContent='Không kết nối được máy chủ. Kiểm tra Render hoặc thử tải lại trang.'}},9000);
 };
 socket.on('connect',()=>{if(connecting)join()});
-function join(){socket.emit('join',{hero,name:$('name').value,room:$('room').value},res=>{
+function join(){socket.emit('join',{hero,mode,name:$('name').value,room:$('room').value},res=>{
  connecting=false;$('join').disabled=false;
  if(!res?.ok){$('menuError').textContent=res?.error||'Không vào được phòng';return}
- me=res.id;$('menu').style.display='none';$('hud').hidden=false;heading=0;lastSkill=-Infinity;
+ me=res.id;mode=res.mode;$('bossHud').hidden=mode!=='boss';$('menu').style.display='none';$('hud').hidden=false;heading=0;lastSkill=-Infinity;
  $('heroName').textContent=roster[hero].name;$('roomLabel').textContent='Phòng: '+res.room;
- history.replaceState({},'',location.pathname+'?room='+encodeURIComponent(res.room));
+ history.replaceState({},'',location.pathname+'?room='+encodeURIComponent(res.room)+'&mode='+mode);
  try{if(!renderer)init3d()}catch(e){$('menu').style.display='flex';$('hud').hidden=true;$('menuError').textContent='Lỗi đồ họa: '+e.message;console.error(e)}
 })}
 socket.on('disconnect',()=>{if(me)toast('Mất kết nối máy chủ. Đang thử nối lại...')});
@@ -36,6 +38,10 @@ socket.on('state',list=>{
  if(me){const mine=players.get(me);if(mine){$('hpfill').style.width=(mine.hp/roster[mine.hero].hp*100)+'%';$('hptext').textContent=mine.hp+' / '+roster[mine.hero].hp}}
  $('playerCount').textContent=list.length+' người';$('board').innerHTML='<b>🏆 ĐẤU TRƯỜNG</b><br>'+[...list].sort((a,b)=>b.kills-a.kills).slice(0,8).map((p,i)=>`${i+1}. ${escapeHTML(p.name)} · ${p.kills} KO`).join('<br>');
 });
+socket.on('bossState',b=>{bossData=b; if(renderer&&b&&!bossModel)createBossModel();if(bossModel)bossModel.visible=Boolean(b?.alive);$('bossHud').hidden=mode!=='boss';if(b){$('bossLabel').textContent='👹 THỦ LĨNH · ĐỢT '+b.wave+(b.phase===2?' · CUỒNG NỘ':'');$('bossHp').textContent=b.hp+' / '+b.maxHp;$('bossFill').style.width=(100*b.hp/b.maxHp)+'%'}});
+socket.on('bossDefeated',e=>toast('🏆 Hạ Boss đợt '+e.wave+'! Đợt mới sau 6 giây.'));
+socket.on('bossAttack',e=>{if(renderer)bossPulse(e)});
+socket.on('bossHit',e=>{if(renderer)hitSpark(e)});
 socket.on('playerLeft',id=>{if(models.has(id)){scene.remove(models.get(id));models.delete(id)}players.delete(id)});
 socket.on('effect',e=>{if(renderer)makeEffect(e)});
 socket.on('ko',e=>toast(`${e.killer} hạ gục ${e.victim}!`));
@@ -68,8 +74,20 @@ function init3d(){
  addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
  renderer.domElement.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'&&me){const mine=players.get(me);if(!mine)return;const rect=renderer.domElement.getBoundingClientRect(),nx=e.clientX/rect.width*2-1,ny=-(e.clientY/rect.height*2-1);const v=new THREE.Vector3(nx,ny,.5).unproject(camera),dir=v.sub(camera.position).normalize(),t=-camera.position.y/dir.y;const pt=camera.position.clone().addScaledVector(dir,t);heading=Math.atan2(pt.z-mine.z,pt.x-mine.x)}});
  renderer.domElement.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button===0)blade()});
- renderer.setAnimationLoop(render);
+ if(bossData)createBossModel();renderer.setAnimationLoop(render);
 }
+function createBossModel(){
+ if(bossModel||!scene)return;
+ const g=new THREE.Group(),armor=new THREE.MeshStandardMaterial({color:0x512546,metalness:.53,roughness:.32}),trim=new THREE.MeshStandardMaterial({color:0xff657e,emissive:0x8e163f,emissiveIntensity:1.1,metalness:.5}),dark=new THREE.MeshStandardMaterial({color:0x17152d,roughness:.65});
+ const part=(geo,mat,x,y,z)=>{let m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=true;g.add(m);return m};
+ part(new THREE.CylinderGeometry(1.2,1.7,3.5,10),armor,0,3.2,0);
+ part(new THREE.DodecahedronGeometry(1.3),armor,0,5.3,0);
+ for(let sign of [-1,1]){part(new THREE.ConeGeometry(.46,1.8,6),trim,sign*.72,6.5,0).rotation.z=sign*-.25;part(new THREE.BoxGeometry(.8,2.5,.85),armor,sign*1.6,3.4,0).rotation.z=sign*.32;part(new THREE.BoxGeometry(.77,2.4,.88),dark,sign*.68,1.1,0)}
+ const eye=part(new THREE.BoxGeometry(1.15,.17,.17),trim,0,5.38,1.13);eye.material.emissiveIntensity=2;
+ const aura=new THREE.Mesh(new THREE.TorusGeometry(2.35,.12,8,64),new THREE.MeshBasicMaterial({color:0xff6389,transparent:true,opacity:.68}));aura.rotation.x=Math.PI/2;aura.position.y=.17;g.add(aura);g.aura=aura;g.scale.setScalar(1.12);scene.add(g);bossModel=g;
+}
+function bossPulse(e){const mesh=new THREE.Mesh(new THREE.RingGeometry(.5,e.radius,64),new THREE.MeshBasicMaterial({color:e.phase===2?0xff274f:0xffab65,side:THREE.DoubleSide,transparent:true,opacity:.75,depthWrite:false}));mesh.rotation.x=-Math.PI/2;mesh.position.set(e.x,.13,e.z);scene.add(mesh);effects.push({mesh,t:0,max:.5});}
+function hitSpark(e){const mesh=new THREE.Mesh(new THREE.IcosahedronGeometry(.6,1),new THREE.MeshBasicMaterial({color:roster[e.hero]?.color||0xffffff,transparent:true,opacity:.9}));mesh.position.set(e.x,4.9,e.z);scene.add(mesh);effects.push({mesh,t:0,max:.3})}
 function makeFighter(key){const h=roster[key],g=new THREE.Group(),mat=new THREE.MeshStandardMaterial({color:h.color,roughness:.36,metalness:.24}),dark=new THREE.MeshStandardMaterial({color:0x172033,roughness:.75}),skin=new THREE.MeshStandardMaterial({color:0xffd1ac}),steel=new THREE.MeshStandardMaterial({color:0xb6eaff,metalness:.75,roughness:.2});
  function box(w,hh,d,x,y,z,m){const a=new THREE.Mesh(new THREE.BoxGeometry(w,hh,d),m);a.position.set(x,y,z);a.castShadow=true;g.add(a);return a}
  box(.9,1.2,.48,0,1.8,0,mat);box(.85,.24,.65,0,2.4,0,dark);box(.25,.98,.27,-.27,.6,0,dark);box(.25,.98,.27,.27,.6,0,dark);box(.25,.9,.24,-.62,1.85,0,mat);box(.25,.9,.24,.62,1.85,0,mat);
@@ -85,6 +103,7 @@ function render(){const dt=Math.min(clock.getDelta(),.05);acc+=dt;
  if(acc>=.05&&socket.connected&&mine){acc=0;let dx=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+touchDir.x;let dz=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+touchDir.z;let mag=Math.hypot(dx,dz);if(mag>1){dx/=mag;dz/=mag}
  if(mag>.04){if(matchMedia('(pointer:coarse)').matches)heading=Math.atan2(dz,dx);socket.emit('move',{dx,dz,angle:heading})}else socket.emit('move',{dx:0,dz:0,angle:heading});}
  for(const [id,m] of models){const p=players.get(id);if(!p)continue;m.position.x=THREE.MathUtils.damp(m.position.x,p.x,12,dt);m.position.z=THREE.MathUtils.damp(m.position.z,p.z,12,dt);m.rotation.y=-p.angle;}
+ if(bossData&&bossModel){bossModel.position.x=THREE.MathUtils.damp(bossModel.position.x,bossData.x,7,dt);bossModel.position.z=THREE.MathUtils.damp(bossModel.position.z,bossData.z,7,dt);bossAnim+=dt;bossModel.rotation.y+=dt*.45;bossModel.position.y=Math.sin(bossAnim*2)*.09;bossModel.aura.rotation.z+=dt*.55;}
  if(mine){const focus=new THREE.Vector3(mine.x,1.9,mine.z),target=new THREE.Vector3(mine.x+11,13,mine.z+15);camera.position.lerp(target,Math.min(1,dt*4));camera.lookAt(focus)}
  for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.t+=dt;e.mesh.scale.setScalar(1+e.t*1.5);e.mesh.material.opacity=Math.max(0,1-e.t/e.max);if(e.t>=e.max){scene.remove(e.mesh);e.mesh.geometry.dispose();e.mesh.material.dispose();effects.splice(i,1)}}
  let remaining=Math.max(0,Math.ceil((roster[hero].cd-(Date.now()-lastSkill))/1000));$('skillcd').textContent=remaining?remaining+'s':'Sẵn sàng';
